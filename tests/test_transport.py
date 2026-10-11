@@ -1437,7 +1437,7 @@ class TestSubprocessCLITransport:
 
             def fake_inject(carrier: dict[str, str]) -> None:
                 # Propagator emits traceparent only (active span has empty
-                # trace_state) — the common case.
+                # trace_state) - the common case.
                 carrier["traceparent"] = active
 
             fake_propagate = MagicMock()
@@ -2016,6 +2016,7 @@ class TestSubprocessCLITransport:
             # Create a real subprocess that consumes stdin (cross-platform)
             process = await anyio.open_process(
                 [sys.executable, "-c", "import sys; sys.stdin.read()"],
+                creationflags=0x08000000 if os.name == "nt" else 0,
                 stdin=PIPE,
                 stdout=PIPE,
                 stderr=PIPE,
@@ -2070,6 +2071,7 @@ class TestSubprocessCLITransport:
             # Create a real subprocess that consumes stdin (cross-platform)
             process = await anyio.open_process(
                 [sys.executable, "-c", "import sys; sys.stdin.read()"],
+                creationflags=0x08000000 if os.name == "nt" else 0,
                 stdin=PIPE,
                 stdout=PIPE,
                 stderr=PIPE,
@@ -2464,7 +2466,7 @@ class TestSubprocessCLITransport:
 
     def test_stderr_line_split_across_chunks_is_reassembled(self) -> None:
         """``options.stderr`` is documented to receive lines, but the stream
-        yields chunks — a long line split at a read boundary must be delivered
+        yields chunks - a long line split at a read boundary must be delivered
         once, whole, rather than as two fragments with the seam whitespace
         rstripped off the first."""
 
