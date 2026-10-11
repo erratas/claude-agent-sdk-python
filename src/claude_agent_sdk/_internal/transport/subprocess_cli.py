@@ -123,7 +123,7 @@ def _validate_skill_name(name: str) -> None:
     if name != name.strip():
         raise ValueError(
             f"Invalid skill name {name!r}: leading or trailing whitespace"
-            " can never match — the Skill tool trims the invoked name."
+            " can never match - the Skill tool trims the invoked name."
         )
     if _SKILL_NAME_INVALID_CHARS.search(name):
         raise ValueError(
@@ -150,7 +150,7 @@ def _validate_skill_name(name: str) -> None:
     if "\\\\" in name:
         raise ValueError(
             f"Invalid skill name {name!r}: consecutive backslashes are not"
-            " allowed — the per-rule parser collapses them, so the rule"
+            " allowed - the per-rule parser collapses them, so the rule"
             " would name a different skill."
         )
     if name.endswith("\\"):
@@ -165,7 +165,7 @@ class _LineFramer:
 
     anyio's TextReceiveStream yields CHUNKS (one per receive() call, up to 64KiB
     on the asyncio backend), not lines, so a large line spans several chunks and
-    a chunk boundary can fall anywhere — including inside a JSON string value.
+    a chunk boundary can fall anywhere - including inside a JSON string value.
     Splitting on "\\n" and never stripping a chunk is what keeps whitespace at
     the seam intact.
     """
@@ -201,8 +201,8 @@ def _parse_stdout_line(line: str) -> dict[str, Any] | None:
 
     Returns None for lines that carry no message: blank lines, and non-JSON
     output such as ``[SandboxDebug] ...`` that some CLI builds write to stdout
-    (#347). A line that looks like JSON but does not parse is corrupt — with
-    proper line framing there is no later data that could complete it — so it
+    (#347). A line that looks like JSON but does not parse is corrupt - with
+    proper line framing there is no later data that could complete it - so it
     raises rather than silently dropping a message.
     """
     # `line` is a complete line, so surrounding whitespace (e.g. the "\r" of a
@@ -878,6 +878,7 @@ class SubprocessCLITransport(Transport):
                 cwd=self._cwd,
                 env=process_env,
                 user=self._options.user,
+                creationflags=0x08000000 if platform.system() == "Windows" else 0,
             )
             _ACTIVE_CHILDREN.add(self._process)
 
@@ -888,7 +889,7 @@ class SubprocessCLITransport(Transport):
             if stderr_dest is PIPE and self._process.stderr:
                 self._stderr_stream = TextReceiveStream(self._process.stderr)
                 # Spawn the stderr reader via spawn_detached (not a manually-
-                # entered TaskGroup) so cleanup has no trio task-affinity —
+                # entered TaskGroup) so cleanup has no trio task-affinity -
                 # same pattern as Query._read_task.
                 self._stderr_task = spawn_detached(self._handle_stderr())
 
@@ -965,8 +966,8 @@ class SubprocessCLITransport(Transport):
         The whole body runs inside a shielded cancel scope. Cleanup is
         routinely reached while the caller's task is being cancelled (e.g.
         `async with ClaudeSDKClient()` unwinding on cancel), and an
-        unshielded close() would abort at the first await — before the
-        terminate/kill escalation ran — orphaning the CLI child, which then
+        unshielded close() would abort at the first await - before the
+        terminate/kill escalation ran - orphaning the CLI child, which then
         surfaces as `<defunct>` once nothing is left to wait() on it.
 
         Every await in *this* scope is bounded (~20s worst case), so an anyio
@@ -980,7 +981,7 @@ class SubprocessCLITransport(Transport):
         an anyio cancel scope*. A raw asyncio cancellation (`asyncio.wait_for` /
         `asyncio.timeout` firing, a bare `task.cancel()`, loop shutdown) is
         still delivered at the next await in here, and the escalation below only
-        catches `TimeoutError` — so it would be skipped. That is a pre-existing
+        catches `TimeoutError` - so it would be skipped. That is a pre-existing
         limitation of the shield on the asyncio backend rather than something
         this scope introduces, and it is still strictly better than before: the
         `finally` keeps a still-running child in `_ACTIVE_CHILDREN` for the
@@ -1032,14 +1033,14 @@ class SubprocessCLITransport(Transport):
                         with anyio.fail_after(5):
                             await self._process.wait()
                     except TimeoutError:
-                        # Graceful shutdown timed out — force terminate
+                        # Graceful shutdown timed out - force terminate
                         with suppress(ProcessLookupError):
                             self._process.terminate()
                         try:
                             with anyio.fail_after(5):
                                 await self._process.wait()
                         except TimeoutError:
-                            # SIGTERM handler blocked — force kill (SIGKILL)
+                            # SIGTERM handler blocked - force kill (SIGKILL)
                             with suppress(ProcessLookupError):
                                 self._process.kill()
                             with suppress(Exception), anyio.fail_after(5):
@@ -1047,7 +1048,7 @@ class SubprocessCLITransport(Transport):
             finally:
                 # Only stop tracking a child we actually reaped. A still-running
                 # process (kill raced, or wait timed out) stays in the set so the
-                # atexit reaper gets a chance at it — dropping it here is what
+                # atexit reaper gets a chance at it - dropping it here is what
                 # turned a cancelled close() into a leaked child. The reaper only
                 # sends SIGTERM, so this rescues a child that is on its way out,
                 # not one that survived SIGKILL.
@@ -1136,7 +1137,7 @@ class SubprocessCLITransport(Transport):
 
         # Flush whatever is left. The CLI terminates every message with "\n", so
         # a residual tail means either a producer that omits the final newline
-        # (yield it) or one cut off mid-write (unrecoverable — drop it).
+        # (yield it) or one cut off mid-write (unrecoverable - drop it).
         tail = framer.flush()
         try:
             data = _parse_stdout_line(tail)
@@ -1170,6 +1171,7 @@ class SubprocessCLITransport(Transport):
             with anyio.fail_after(2):  # 2 second timeout
                 version_process = await anyio.open_process(
                     [self._cli_path, "-v"],
+                    creationflags=0x08000000 if platform.system() == "Windows" else 0,
                     stdout=PIPE,
                     stderr=PIPE,
                 )
